@@ -165,7 +165,7 @@ private slots:
     void on_LaserOnOff(bool checked=false);
 
     void on_MoveToStartPos();
-    void on_ResetPosition();
+    void on_MoveToHomePos();
     void on_StopMoving();
     void on_MoveXP();
     void on_MoveXN();
@@ -206,6 +206,7 @@ private:
     void inline axisMoveToDirection(MoveDirection dir);   // 轴移动
     void stopMove(int mode=DEC_STOP);
     void inline axisMoveTo(AXIS axis, float pos);
+    osg::Vec3d getCurPos();
     bool motorIsRunning();
 
     // 处理最近打开文件及路径列表
@@ -260,7 +261,7 @@ private:
     bool bHomed = false;    //已经复位过
     bool bMotorRunning = false; //有电机在运行
     bool isLaserOn = false; //激光打开
-    osg::Vec3 curPosition = osg::Vec3(0.f, 0.f, 0.f);
+    osg::Vec3d curPosition = osg::Vec3d(0., 0., 0.);
     TimerData tdRunningTime;
     TimerData tdEngravingTime;
 

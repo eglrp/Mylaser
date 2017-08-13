@@ -255,15 +255,14 @@ void CtrlCard::Set_Pwm(long freq, float value)
     fifo_set_laser_control(0,1);
     if(g_HardwareVer == 2)
     {
-//        int nNum;
-//        read_fifo(0,&nNum);
-//        while(nNum >= FIFONUM - 1)
-//        {
-//            read_fifo(0,&nNum);
-//        }
+        int nNum;
+        read_fifo(0,&nNum);
+        while(nNum >= FIFONUM - 1)
+        {
+            read_fifo(0,&nNum);
+        }
         fifo_set_pwm_freq1(0,(int)(1.0/freq*1000000*TIMEVAL));
         fifo_set_pwm_freq2(0,(int)(1.0/freq*1000000*value*TIMEVAL));
-        set_pwm(0,freq,value);
     }
     else
     {

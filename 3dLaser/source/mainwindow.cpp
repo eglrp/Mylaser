@@ -6,7 +6,7 @@
 #include "macro.h"
 #include "mainwindow.h"
 
-#include "adt8933.h"
+//#include "adt8933.h"
 
 
 using namespace std;
@@ -219,18 +219,42 @@ void MainWindow::on_LaserOnOff(bool checked)
 
 void MainWindow::on_MoveToStartPos()
 {
+    if(!bHomed)
+    {
+        QMessageBox::warning(this, tr("警告"), tr("机器尚未复位！"));
+        return;
+    }
 
+    float xPos=sharedPara->initOffset[AXISX];
+    float yPos=sharedPara->initOffset[AXISY];
+    float zPos=/*sharedPara->initOffset[AXISZ]*/50.f;
+
+    xPos -= sharedPara->crystalSize.x()*0.5f;
+    yPos += sharedPara->crystalSize.y()*0.5f;
+
+    curPosition = getCurPos();
+    xPos -= curPosition.x();
+    yPos -= curPosition.y();
+    zPos -= curPosition.z();
+
+    axisMoveTo(AXISX, xPos);
+    axisMoveTo(AXISY, yPos);
+    axisMoveTo(AXISZ, zPos);
+    bMotorRunning = true;
+    Sleep(20);
 }
 
-void MainWindow::on_ResetPosition()
+void MainWindow::on_MoveToHomePos()
 {
     float xPos=sharedPara->initOffset[AXISX];
     float yPos=sharedPara->initOffset[AXISY];
-    float zPos=50.f;
+    float zPos=/*sharedPara->initOffset[AXISZ]*/50.f;
 
     axisMoveToDirection(XN);   //左
     axisMoveToDirection(YN);   //前
     axisMoveToDirection(ZN);   //下
+    bMotorRunning = true;
+    Sleep(20);
     ui->gb_EngravingCtrl->setEnabled(false);
     ui->gb_PlatformCtrl->setEnabled(false);
     while(true) //同步运动
@@ -246,6 +270,8 @@ void MainWindow::on_ResetPosition()
     axisMoveTo(AXISX, xPos);
     axisMoveTo(AXISY, yPos);
     axisMoveTo(AXISZ, zPos);
+    bMotorRunning = true;
+    Sleep(20);
     while(true) //同步运动
     {
         QCoreApplication::processEvents();
@@ -331,15 +357,14 @@ void MainWindow::on_MotionMonitoringTimer()
 {
     bMotorRunning = motorIsRunning();
     ui->pb_MoveToStartPos->setEnabled(!bMotorRunning);
-    ui->pb_ResetPos->setEnabled(!bMotorRunning);
+    ui->pb_MoveToHome->setEnabled(!bMotorRunning);
 
     // 更新界面当前位置
-    long logicPos, actualPos, speed;
+    curPosition = getCurPos();
     QLabel *lb[MAXNUM_MOTOR] = {ui->lb_PlatCurPosValX, ui->lb_PlatCurPosValY, ui->lb_PlatCurPosValZ};
     for(int i=1; i<=MAXNUM_MOTOR; i++)
     {
-        ctrlCard.Get_CurrentInf(i, logicPos, actualPos, speed);
-        lb[i-1]->setText(QString::number(actualPos/sharedPara->motorRatio[i-1]));
+        lb[i-1]->setText(QString::number(curPosition._v[i-1]));
     }
 }
 
@@ -435,7 +460,7 @@ void MainWindow::initSignalsAndSlots()
     connect(ui->pb_LaserOnOff, SIGNAL(clicked(bool)), this, SLOT(on_LaserOnOff(bool)));
 
     connect(ui->pb_MoveToStartPos, SIGNAL(clicked(bool)), this, SLOT(on_MoveToStartPos()));
-    connect(ui->pb_ResetPos, SIGNAL(clicked(bool)), this, SLOT(on_ResetPosition()));
+    connect(ui->pb_MoveToHome, SIGNAL(clicked(bool)), this, SLOT(on_MoveToHomePos()));
     connect(ui->pb_StopMoving, SIGNAL(clicked(bool)), this, SLOT(on_StopMoving()));
     connect(ui->pb_MoveXN, SIGNAL(pressed()), this, SLOT(on_MoveXN()));
     connect(ui->pb_MoveXN, SIGNAL(released()), this, SLOT(on_StopMoving()));
@@ -621,6 +646,21 @@ void MainWindow::axisMoveTo(AXIS axis, float pos)
 
     ctrlCard.Setup_Speed(mappedAxis+1, lVStart, lSpeed, lAcc);
     ctrlCard.Axis_Pmove(mappedAxis+1, lPos);
+}
+
+osg::Vec3d MainWindow::getCurPos()
+{
+    osg::Vec3d pos;
+    AXIS oAxis[MAXNUM_MOTOR] = {AXISZ, AXISY, AXISX};   //电机轴往回映射至笛卡尔坐标系轴
+    long logicPos, actualPos, speed;
+    int k=1;
+    for(int i=1; i<=MAXNUM_MOTOR; i++)
+    {
+        ctrlCard.Get_CurrentInf(i, logicPos, actualPos, speed);
+        if(i!=1) k=-1;
+        pos._v[oAxis[i-1]] = (double)k*logicPos/sharedPara->motorRatio[i-1];
+    }
+    return pos;
 }
 
 // 是否有电机正在运行
